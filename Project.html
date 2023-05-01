@@ -1,0 +1,175 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Income and Race Visualization</title>
+    
+    <!-- !!! getting an error for loading the source map from sdelivr.net/npm/chart.umd.js.map, return to this later-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const csvUrl = 'https://raw.githubusercontent.com/jacobletizia/frontend-dev-exercises/master/census.csv';
+
+        // first, we should laod the CSV file, we will be grabbing it from my GitHub branch
+        function loadCSV() {
+
+            // we can use the fetch function to accomplish this
+            return fetch(csvUrl)
+                .then(response => {
+
+                    // if the loading of the file went wrong, we should throw an error
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    // we should return regardless
+                    return response.text();
+                })
+
+                // now, with the text that we just got, we should begin converting it into data we can code with
+                .then(text => {
+
+                    // here we split it apart
+                    return text.split('\n').slice(1).map(line => {
+
+                        // we know the format of the data already, so we don't need to guess
+                        const [age, education_level, race, sex, over_50k, over_50k_text, count] = line.split(',');
+
+                        // we can return just the raw data like this, from there we could assign it to a variable or just go through it as we want
+                        return {
+                            age: parseInt(age),
+                            education_level,
+                            race,
+                            sex,
+                            over_50k: parseInt(over_50k),
+                            over_50k_text,
+                            count: parseInt(count),
+                        };
+                    });
+                })
+                .catch(error => {
+                    console.error('There was a problem loading the CSV file:', error);
+                });
+        }
+
+        // now that we have the data we want, let's create a chart with the specified data that we actually need to display
+        function createChart(attribute) {
+
+            // we can use our loadCSV method from earlier to grab the data
+            loadCSV().then(data => {
+
+                // this way of formatting the data was taken from online, I am so sorry but I closed and opened so many tabs that I cannot find where I got this suggestion from
+                const groupedData = data.reduce((grouped, item) => {
+                    if (!grouped[item[attribute]]) {
+                        grouped[item[attribute]] = {
+                            above: 0,
+                            below: 0,
+                            total: 0
+                        };
+                    }
+                    // as we roll through the data, we should keep count of each type of person in regards to 50k earnings
+                    grouped[item[attribute]].total += 1;
+                    if (item.over_50k) {
+                        grouped[item[attribute]].above += 1;
+                    } else {
+                        grouped[item[attribute]].below += 1;
+                    }
+                    return grouped;
+                }, {});
+
+                // let's grab our labels for each bar on the graph
+                const labels = Object.keys(groupedData);
+                const dataSets = [
+                    {
+                        label: 'Above $50K',
+                        data: labels.map(label => groupedData[label].above),
+                        // the following color was just one that I selected from a color generator online and copy pasted
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                    },
+                    {
+                        label: 'Below $50K',
+                        data: labels.map(label => groupedData[label].below),
+                        // the following color was just one that I selected from a color generator online and copy pasted
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)'
+                    }
+                ];
+
+                const ctx = document.getElementById('myChart').getContext('2d');
+
+                // before we swap, we need to get rid of the existing chart so that we can make a new oen
+                // first grab the existing one
+                const existingChart = Chart.getChart(ctx);
+
+                // then, if it's there, destroy it so that it can be repopulated
+                if (existingChart) {
+                    existingChart.destroy();
+                }
+
+
+                // we have parsed our data, let's finish up by creating a bar graph and populating it
+                const myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: dataSets
+                    },
+                    options: {
+                        scales: {
+                            /* !!! according to resources online for chart.js, we should tell the yAxes that the begin at zero is true, however I get an error
+                                whenever I include this portion, this is something to revisit later
+                            
+                            yAxes: [
+                                {
+                                    ticks: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            ]*/
+                        }
+                    }
+                });
+            });
+        }
+
+        // create a dropdown control for switching between education level and race
+        function createDropdown() {
+            const dropdownContainer = document.getElementById('dropdown-container');
+            const dropdown = document.createElement('select');
+
+            // we should listen for the dropdown to change
+            dropdown.addEventListener('change', event => {
+                const attribute = event.target.value;
+                createChart(attribute);
+            });
+
+            // let's define the two options we want the dropdown box to have
+            // !!! return to this later, this seems like a lot of lines of code for this operation
+
+            // option 1: education
+            const educationOption = document.createElement('option');
+            educationOption.value = 'education_level';
+            educationOption.text = 'Education Level';
+            dropdown.appendChild(educationOption);
+
+            // option 2: race
+            const raceOption = document.createElement('option');
+            raceOption.value = 'race';
+            raceOption.text = 'Race';
+            dropdown.appendChild(raceOption);
+            dropdownContainer.appendChild(dropdown);
+        }
+
+        // as soon as we load into the HTML page, we should show our chart and dropdown
+        window.onload = function () {
+            createChart('education_level');
+            createDropdown();
+        };
+    </script>
+</head>
+
+<body>
+    <div id="dropdown-container">
+    </div>
+    <canvas id="myChart"></canvas>
+</body>
+
+</html>
